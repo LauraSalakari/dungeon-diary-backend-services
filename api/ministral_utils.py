@@ -32,3 +32,17 @@ def get_rag_answer(query: str, context):
     )
 
     return resp.choices[0].message.content
+
+
+def generate_notes_summary(notes: list[str]):
+    prompt = f"Summarise and combine the following notes, each separated by --: {' -- '.join(notes)}"
+
+    resp = client.chat.completions.create(
+        model=MODEL_ID,
+        messages=[
+            {"role": "system", "content": "You are helpful assistant creating simple summaries without injecting further information."},
+            {"role": "user", "content": prompt},
+        ]
+    )
+
+    return resp.choices[0].message.content
