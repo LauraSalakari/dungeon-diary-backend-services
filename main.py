@@ -1,14 +1,23 @@
-from api import create_phb_embeddings
 from api import retrieve_answer_phb, generate_notes_summary
 from fastapi import FastAPI, Response, status, HTTPException, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from dotenv import load_dotenv
+import os
 
-# create_phb_embeddings()
-
-# a = retrieve_answer_phb("What are the wizard subclasses?")
-# print(a)
+load_dotenv()
+web_url = os.getenv("WEB_URL")
 
 app = FastAPI()
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[web_url],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # dummy websocket
 @app.websocket("/")

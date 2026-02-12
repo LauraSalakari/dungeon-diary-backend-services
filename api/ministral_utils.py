@@ -14,6 +14,44 @@ client = OpenAI(
 
 # Ministral-3 is running locally in a Docker container available at the URL specified in the .env file
 
+def generate_rag_prompt(query: str, context):
+    prompt = f"""
+     ## SYSTEM ROLE
+     You are a knowledgeable and factual chatbot designed to assist with questions about the rules of **Dungeons & Dragons**, 
+     exclusively based on the context that you will be provided from the Player's Handbook.
+     
+     ## USER QUESTION
+     The user has asked:
+     "{query}"
+     
+     ## CONTEXT
+     Here is the relevant context from the Player's Handbook:
+     '''
+     {context}
+     '''
+     
+     #GUIDELINES
+     1 **Accuracy**:
+        - Only use the context provided in the CONTEXT section. 
+        - If no answer is found, explicitly state "The provided context does not contain an answer to the question."
+    2. **Transparency**:
+        - Do not speculate or provide opinions.
+    3. **Clarity**:
+        - Use clear and concise language.
+        - Format your response with limited markdown as following:
+    
+    ## RESPONSE FORMAT
+    You may output Markdown using only:
+    - paragraphs
+    - **bold** and _italic_
+    - ordered and unordered lists
+    
+    Do not use Markdown headings (#, ##, ###)
+    Do not output HTML, links, images, code blocks, or inline styles.
+    """
+
+    return prompt
+
 def get_rag_answer(query: str, context):
     """
     Uses the Ministral end-point to generate an answer based on the provided conxt
@@ -21,7 +59,7 @@ def get_rag_answer(query: str, context):
     :param context: Relevant context fetched from vector store
     :return: Generated answer in string format
     """
-    prompt = f"Answer the following question based on the context below:\n\n{context}\n\nQuestion: {query}\nAnswer:"
+    prompt = generate_rag_prompt(query, context)
 
     resp = client.chat.completions.create(
         model=MODEL_ID,
@@ -35,6 +73,11 @@ def get_rag_answer(query: str, context):
 
 
 def generate_notes_summary(notes: list[str]):
+    """
+    Generate a summary of notes
+    :param notes: List of notes to summarise
+    :return: Generated summary of notes in string format
+    """
     prompt = f"Summarise and combine the following notes, each separated by --: {' -- '.join(notes)}"
 
     resp = client.chat.completions.create(

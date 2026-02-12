@@ -21,7 +21,7 @@ def format_context(docs: list):
     return prompt
 
 # chatbot/LLM functionality
-def retrieve_answer_phb(q: str, k: int = 5):
+def retrieve_answer_phb(q: str, k: int = 10):
     """
     Retrieve relevant info about a question from the Player's Handbook
     :param q: User question
