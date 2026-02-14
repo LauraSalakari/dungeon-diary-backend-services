@@ -1,0 +1,1 @@
+run command: fastapi dev main.py --host localhost  --port 8001      

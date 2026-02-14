@@ -1,9 +1,11 @@
 from api import retrieve_answer_phb, generate_notes_summary
-from fastapi import FastAPI, Response, status, HTTPException, WebSocket
+from fastapi import FastAPI, Response, status, HTTPException, WebSocket, APIRouter, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
+from mongodb import authenticate_user, create_access_token, require_user, UserCreate, hash_password, user_collection
+from pymongo.errors import DuplicateKeyError
 
 load_dotenv()
 web_url = os.getenv("WEB_URL")
@@ -25,28 +27,78 @@ async def ignore_ws(ws: WebSocket):
     await ws.accept()
     await ws.close()
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+@app.post("/login")
+def login(email: str, password: str):
+    user = authenticate_user(email, password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    token = create_access_token(str(user["_id"]))
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@app.post("/register",
+          response_model=UserCreate,
+          status_code=status.HTTP_201_CREATED)
+def register(payload: UserCreate, res: Response):
+    user_doc = {
+        "email": payload.email.lower(),
+        "username": payload.username.lower(),
+        "password": hash_password(payload.password),
+        "campaigns": []
+    }
+
+    try:
+        result = user_collection.insert_one(user_doc)
+
+    except DuplicateKeyError:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered",
+        )
+
+    return {
+        "id": str(result.inserted_id),
+        "email": user_doc["email"],
+        "created_at": user_doc["created_at"],
+    }
+
+
+# use API router to protect routes that require an identified user
+router = APIRouter(
+    prefix="/api",
+    dependencies=[Depends(require_user)]
+)
+
 
 # for FastAPI to recognise what should be the request body, need to define it through pydantic
 class PhbQuery(BaseModel):
     q: str
 
-@app.post("/phb-rag")
+@router.post("/phb-rag")
 def query_phb_rag (query: PhbQuery, res: Response):
     print("Question received:", query)
     try:
         answer = retrieve_answer_phb(query.q)
         res.status_code = status.HTTP_200_OK
         return answer
-    except:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
+    except HTTPException:
+        # Let FastAPI handle it properly (401, 403, etc.)
+        raise
+
+    except Exception as e:
+        # Real server error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
 
 class NotesToSummarise(BaseModel):
     notes: list[str]
 
-@app.post("/notes-summarise")
+@router.post("/notes-summarise")
 def summarise_notes(query: NotesToSummarise, res: Response):
     try:
         summary = generate_notes_summary(query.notes)
@@ -54,3 +106,7 @@ def summarise_notes(query: NotesToSummarise, res: Response):
         return summary
     except:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
+
+# add the protected router to the app
+app.include_router(router)
