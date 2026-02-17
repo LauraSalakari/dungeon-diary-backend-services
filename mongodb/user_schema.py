@@ -11,3 +11,8 @@ class UserCreate(BaseModel):
     email: EmailStr
     username: str
     password: str = Field(min_length=8)
+
+class UserCreatedResult(BaseModel):
+    id: str
+    username: str
+    email: EmailStr

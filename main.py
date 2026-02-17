@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
-from mongodb import authenticate_user, create_access_token, require_user, UserCreate, hash_password, user_collection
+from mongodb import authenticate_user, create_access_token, require_user, UserCreate, hash_password, user_collection, \
+    UserCreatedResult
 from pymongo.errors import DuplicateKeyError
 
 load_dotenv()
@@ -38,12 +39,12 @@ def login(email: str, password: str):
 
 
 @app.post("/register",
-          response_model=UserCreate,
+          response_model=UserCreatedResult,
           status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, res: Response):
     user_doc = {
         "email": payload.email.lower(),
-        "username": payload.username.lower(),
+        "username": payload.username,
         "password": hash_password(payload.password),
         "campaigns": []
     }
@@ -59,8 +60,8 @@ def register(payload: UserCreate, res: Response):
 
     return {
         "id": str(result.inserted_id),
+        "username": user_doc["username"],
         "email": user_doc["email"],
-        "created_at": user_doc["created_at"],
     }
 
 
