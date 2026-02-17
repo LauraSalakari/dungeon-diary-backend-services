@@ -3,8 +3,8 @@ from .get_database import user_collection
 import jwt
 import os
 from datetime import datetime, timedelta, timezone
-from fastapi import Depends, HTTPException, Request
-from fastapi.security import HTTPBearer
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, OAuth2PasswordBearer
 from bson import ObjectId
 
 
@@ -69,3 +69,39 @@ def require_user(credentials=Depends(security)):
 
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def decode_access_token(token: str) -> str:
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        user_id: str = payload.get("sub")
+
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload"
+            )
+
+        return user_id
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+
+# informs how/where to get a token
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
+    return decode_access_token(token)

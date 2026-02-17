@@ -5,7 +5,8 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
 from mongodb import authenticate_user, create_access_token, require_user, UserCreate, hash_password, user_collection, \
-    UserCreatedResult, UserLogin
+    UserCreatedResult, UserLogin, CampaignCreate, db_create_campaign, get_current_user_id, CampaignJoinSchema, \
+    db_join_campaign
 from pymongo.errors import DuplicateKeyError
 
 load_dotenv()
@@ -106,9 +107,58 @@ def summarise_notes(query: NotesToSummarise, res: Response):
         summary = generate_notes_summary(query.notes)
         res.status_code = status.HTTP_200_OK
         return summary
-    except:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
 
+    except HTTPException:
+        # Let FastAPI handle it properly (401, 403, etc.)
+        raise
+
+    except Exception as e:
+        # Real server error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.post("/create-campaign")
+def create_campaign(payload: CampaignCreate, user_id: str = Depends(get_current_user_id)):
+    try:
+        campaign = db_create_campaign(payload, user_id)
+        return {
+            "id": str(campaign["_id"]),
+            "name": campaign["name"],
+        }
+
+    except HTTPException:
+        # Let FastAPI handle it properly (401, 403, etc.)
+        raise
+
+    except Exception as e:
+        # Real server error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+@router.post("/join-campaign")
+def join_campaign(payload: CampaignJoinSchema, user_id: str = Depends(get_current_user_id)):
+    try:
+        campaign = db_join_campaign(payload, user_id)
+        return {
+            "campaign_id": str(campaign["_id"]),
+            "player_name": campaign["name"],
+        }
+
+    except HTTPException:
+        # Let FastAPI handle it properly (401, 403, etc.)
+        raise
+
+    except Exception as e:
+        # Real server error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
 
 # add the protected router to the app
 app.include_router(router)

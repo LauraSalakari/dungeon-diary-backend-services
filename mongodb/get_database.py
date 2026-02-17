@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 import os
 from urllib.parse import quote_plus
 
-
 load_dotenv()
 
 mongo_user = quote_plus(os.getenv("MONGO_USER"))
@@ -22,3 +21,5 @@ def get_database():
 db = get_database()
 
 user_collection = db["users"]
+campaign_collection = db["campaigns"]
+notes_collection = db["notes"]
