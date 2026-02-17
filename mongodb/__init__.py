@@ -1,5 +1,5 @@
 from .get_database import get_database, user_collection
-from .user_schema import UserModel, UserCreate, UserCreatedResult
+from .user_schema import UserModel, UserCreate, UserCreatedResult, UserLogin
 from .auth_utils import authenticate_user, create_access_token, require_user, hash_password, verify_password
 
 __all__ = [
@@ -8,6 +8,7 @@ __all__ = [
     "UserModel",
     "UserCreate",
     "UserCreatedResult",
+    "UserLogin",
     "authenticate_user",
     "create_access_token",
     "require_user",

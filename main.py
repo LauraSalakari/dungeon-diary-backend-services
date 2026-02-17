@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
 from mongodb import authenticate_user, create_access_token, require_user, UserCreate, hash_password, user_collection, \
-    UserCreatedResult
+    UserCreatedResult, UserLogin
 from pymongo.errors import DuplicateKeyError
 
 load_dotenv()
@@ -29,8 +29,9 @@ async def ignore_ws(ws: WebSocket):
     await ws.close()
 
 @app.post("/login")
-def login(email: str, password: str):
-    user = authenticate_user(email, password)
+def login(payload: UserLogin):
+    user = authenticate_user(payload.email, payload.password)
+
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -41,11 +42,11 @@ def login(email: str, password: str):
 @app.post("/register",
           response_model=UserCreatedResult,
           status_code=status.HTTP_201_CREATED)
-def register(payload: UserCreate, res: Response):
+def register(payload: UserCreate):
     user_doc = {
         "email": payload.email.lower(),
         "username": payload.username,
-        "password": hash_password(payload.password),
+        "password_hash": hash_password(payload.password),
         "campaigns": []
     }
 

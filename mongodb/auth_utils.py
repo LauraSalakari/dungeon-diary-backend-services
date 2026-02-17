@@ -30,7 +30,7 @@ def authenticate_user(email: str, password: str):
 
     return user
 
-SECRET_KEY = os.getenv("JWT_SECRET")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 
 def create_access_token(user_id: str):
