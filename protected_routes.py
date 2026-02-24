@@ -2,7 +2,7 @@ from api import retrieve_answer_phb, generate_notes_summary
 from fastapi import Response, status, HTTPException, APIRouter, Depends
 from pydantic import BaseModel
 from mongodb import require_user, CampaignCreate, db_create_campaign, get_current_user_id, CampaignJoinSchema, \
-    db_join_campaign
+    db_join_campaign, NoteSchema, create_new_note
 
 # use API router to protect routes that require an identified user
 router = APIRouter(
@@ -86,6 +86,31 @@ def join_campaign(payload: CampaignJoinSchema, user_id: str = Depends(get_curren
         return {
             "campaign_id": str(campaign["campaign_id"]),
             "player_name": campaign["character_name"],
+        }
+
+    except HTTPException:
+        # Let FastAPI handle it properly (401, 403, etc.)
+        raise
+
+    except Exception as e:
+        # Real server error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+@router.post("/add-note")
+def add_note(payload: NoteSchema, user_id: str = Depends(get_current_user_id)):
+    try:
+        note = create_new_note(payload, user_id)
+
+        return {
+            "user_id": str(note["user_id"]),
+            "campaign_id": str(note["campaign_id"]),
+            "content": note["content"],
+            "is_private": note["is_private"],
+            "id": str(note["id"]),
+            "session_date": note["session_date"]
         }
 
     except HTTPException:
