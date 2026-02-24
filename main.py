@@ -123,10 +123,12 @@ def summarise_notes(query: NotesToSummarise, res: Response):
 @router.post("/create-campaign")
 def create_campaign(payload: CampaignCreate, user_id: str = Depends(get_current_user_id)):
     try:
-        campaign = db_create_campaign(payload, user_id)
+        campaign, campaign_id = db_create_campaign(payload, user_id)
+
         return {
-            "id": str(campaign["_id"]),
+            "id": str(campaign_id),
             "name": campaign["name"],
+            "join_code": campaign["join_code"],
         }
 
     except HTTPException:
@@ -145,8 +147,8 @@ def join_campaign(payload: CampaignJoinSchema, user_id: str = Depends(get_curren
     try:
         campaign = db_join_campaign(payload, user_id)
         return {
-            "campaign_id": str(campaign["_id"]),
-            "player_name": campaign["name"],
+            "campaign_id": str(campaign["campaign_id"]),
+            "player_name": campaign["character_name"],
         }
 
     except HTTPException:
