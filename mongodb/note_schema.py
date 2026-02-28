@@ -40,7 +40,8 @@ def create_new_note(note: NoteSchema, user_id: str):
         "campaign_id": ObjectId(note.campaign_id),
         "content": note.content,
         "is_private": note.is_private,
-        "session_date": set_session_date(note.session_date)
+        "session_date": set_session_date(note.session_date),
+        "created_at": datetime.now(timezone.utc)
     }
 
     note = notes_collection.insert_one(note_doc)
@@ -54,7 +55,7 @@ def get_personal_notes_from_db(info: GetNotesRequest, user_id: str):
     session = set_session_date(info.session_date)
     campaign = ObjectId(info.campaign_id)
 
-    notes = notes_collection.find({"user_id": str(user_id), "campaign_id": campaign, "session_date": session})
+    notes = notes_collection.find({"user_id": str(user_id), "campaign_id": campaign, "session_date": session}).sort("created_at", -1)
 
     notes_clean = []
 
@@ -67,6 +68,40 @@ def get_personal_notes_from_db(info: GetNotesRequest, user_id: str):
 
         notes_clean.append(clean_note)
 
-    print(notes_clean)
+    return notes_clean
+
+def all_notes_for_session(info: GetNotesRequest, user_id: str):
+    session = set_session_date(info.session_date)
+    campaign = ObjectId(info.campaign_id)
+
+    # get all notes of the logged in user for the session, and all public notes from others in the campaign
+    query = {
+        "campaignId": campaign,
+        "sessionId": session,
+        "$or": [
+            # all notes by the current user (public or private)
+            {"userId": user_id},
+
+            # public notes by other users
+            {
+                "$and": [
+                    {"userId": {"$ne": user_id}},
+                    {"isPublic": True}
+                ]
+            }
+        ]
+    }
+
+    notes = notes_collection.find(query).sort("created_at", -1)
+
+    notes_clean = []
+    for n in list(notes):
+        clean_note = {
+            "content": n["content"],
+            "is_private": n["is_private"],
+            "session_date": n["session_date"]
+        }
+
+        notes_clean.append(clean_note)
 
     return notes_clean

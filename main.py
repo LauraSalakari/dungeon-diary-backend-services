@@ -21,6 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # dummy websocket
 @app.websocket("/")
 async def ignore_ws(ws: WebSocket):

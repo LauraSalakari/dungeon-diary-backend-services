@@ -2,7 +2,7 @@ from api import retrieve_answer_phb, generate_notes_summary
 from fastapi import Response, status, HTTPException, APIRouter, Depends
 from pydantic import BaseModel
 from mongodb import require_user, CampaignCreate, db_create_campaign, get_current_user_id, CampaignJoinSchema, \
-    db_join_campaign, NoteSchema, create_new_note, GetNotesRequest, get_personal_notes_from_db
+    db_join_campaign, NoteSchema, create_new_note, GetNotesRequest, get_personal_notes_from_db, all_notes_for_session
 
 # use API router to protect routes that require an identified user
 router = APIRouter(
@@ -14,6 +14,7 @@ router = APIRouter(
 # for FastAPI to recognise what should be the request body, need to define it through pydantic
 class PhbQuery(BaseModel):
     q: str
+
 
 @router.post("/phb-rag")
 def query_phb_rag (query: PhbQuery, res: Response):
@@ -37,6 +38,7 @@ def query_phb_rag (query: PhbQuery, res: Response):
 
 class NotesToSummarise(BaseModel):
     notes: list[str]
+
 
 @router.post("/notes-summarise")
 def summarise_notes(query: NotesToSummarise, res: Response):
@@ -79,6 +81,7 @@ def create_campaign(payload: CampaignCreate, user_id: str = Depends(get_current_
             detail=str(e),
         )
 
+
 @router.post("/join-campaign")
 def join_campaign(payload: CampaignJoinSchema, user_id: str = Depends(get_current_user_id)):
     try:
@@ -98,6 +101,7 @@ def join_campaign(payload: CampaignJoinSchema, user_id: str = Depends(get_curren
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+
 
 @router.post("/add-note")
 def add_note(payload: NoteSchema, user_id: str = Depends(get_current_user_id)):
@@ -124,11 +128,34 @@ def add_note(payload: NoteSchema, user_id: str = Depends(get_current_user_id)):
             detail=str(e),
         )
 
+
 @router.get("/notes-personal")
 def get_notes(payload: GetNotesRequest, user_id: str = Depends(get_current_user_id)):
     try:
         notes = get_personal_notes_from_db(payload, user_id)
         return notes
+
+    except HTTPException:
+        # Let FastAPI handle it properly (401, 403, etc.)
+        raise
+
+    except Exception as e:
+        # Real server error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/full-session-summary")
+def get_full_session_summary(payload: GetNotesRequest, user_id: str = Depends(get_current_user_id)):
+    try:
+        notes = all_notes_for_session(payload, user_id)
+
+        notes_for_summary = [n.content for n in notes]
+        summary = generate_notes_summary(notes_for_summary)
+
+        return summary
 
     except HTTPException:
         # Let FastAPI handle it properly (401, 403, etc.)
