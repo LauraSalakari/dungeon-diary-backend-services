@@ -1,8 +1,11 @@
+from bson import ObjectId
+
 from api import retrieve_answer_phb, generate_notes_summary
 from fastapi import Response, status, HTTPException, APIRouter, Depends
 from pydantic import BaseModel
 from mongodb import require_user, CampaignCreate, db_create_campaign, get_current_user_id, CampaignJoinSchema, \
-    db_join_campaign, NoteSchema, create_new_note, GetNotesRequest, get_personal_notes_from_db, all_notes_for_session
+    db_join_campaign, NoteSchema, create_new_note, GetNotesRequest, get_personal_notes_from_db, all_notes_for_session, \
+    fetch_user, campaign_collection
 
 # use API router to protect routes that require an identified user
 router = APIRouter(
@@ -10,6 +13,29 @@ router = APIRouter(
     dependencies=[Depends(require_user)]
 )
 
+
+@router.get("/user")
+def get_user_info(user_id: str = Depends(get_current_user_id)):
+    user = fetch_user(user_id)
+    campaigns = []
+    for campaign in user["campaigns"]:
+        c = campaign_collection.find_one({"_id": ObjectId(campaign["campaign_id"])})
+        c_to_add = {
+            "name": c["name"],
+            "gameMaster": c["gameMaster"],
+            "is_gm": user_id == c["gameMaster"],
+            "player_name": campaign["character_name"],
+            "id": str(campaign["campaign_id"]),
+        }
+        campaigns.append(c_to_add)
+
+    return {
+        "user": {
+            "username": user["username"],
+            "email": user["email"],
+        },
+        "campaigns": campaigns,
+    }
 
 # for FastAPI to recognise what should be the request body, need to define it through pydantic
 class PhbQuery(BaseModel):
@@ -167,3 +193,5 @@ def get_full_session_summary(payload: GetNotesRequest, user_id: str = Depends(ge
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+
+
