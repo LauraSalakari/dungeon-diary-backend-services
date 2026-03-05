@@ -23,3 +23,4 @@ db = get_database()
 user_collection = db["users"]
 campaign_collection = db["campaigns"]
 notes_collection = db["notes"]
+summary_collection = db["summaries"]

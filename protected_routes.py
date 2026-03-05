@@ -5,7 +5,7 @@ from fastapi import Response, status, HTTPException, APIRouter, Depends
 from pydantic import BaseModel
 from mongodb import require_user, CampaignCreate, db_create_campaign, get_current_user_id, CampaignJoinSchema, \
     db_join_campaign, NoteSchema, create_new_note, GetNotesRequest, get_personal_notes_from_db, all_notes_for_session, \
-    fetch_user, campaign_collection
+    fetch_user, campaign_collection, SummaryCreateSchema, generate_summary, get_sessions_from_notes, fetch_summaries
 
 # use API router to protect routes that require an identified user
 router = APIRouter(
@@ -62,15 +62,10 @@ def query_phb_rag (query: PhbQuery, res: Response):
         )
 
 
-class NotesToSummarise(BaseModel):
-    notes: list[str]
-
-
 @router.post("/notes-summarise")
-def summarise_notes(query: NotesToSummarise, res: Response):
+def summarise_notes(query: SummaryCreateSchema, user_id: str = Depends(get_current_user_id)):
     try:
-        summary = generate_notes_summary(query.notes)
-        res.status_code = status.HTTP_200_OK
+        summary = generate_summary(query, user_id)
         return summary
 
     except HTTPException:
@@ -115,6 +110,7 @@ def join_campaign(payload: CampaignJoinSchema, user_id: str = Depends(get_curren
         return {
             "campaign_id": str(campaign["campaign_id"]),
             "player_name": campaign["character_name"],
+            "campaign_name": campaign["campaign_name"],
         }
 
     except HTTPException:
@@ -156,10 +152,27 @@ def add_note(payload: NoteSchema, user_id: str = Depends(get_current_user_id)):
 
 
 @router.get("/notes-personal")
-def get_notes(payload: GetNotesRequest, user_id: str = Depends(get_current_user_id)):
+def get_notes(campaign_id: str, session_date: str, user_id: str = Depends(get_current_user_id)):
     try:
-        notes = get_personal_notes_from_db(payload, user_id)
+        notes = get_personal_notes_from_db(session_date, campaign_id, user_id)
         return notes
+
+    except HTTPException:
+        # Let FastAPI handle it properly (401, 403, etc.)
+        raise
+
+    except Exception as e:
+        # Real server error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/campaign-sessions")
+def get_campaign_sessions(campaign_id: str):
+    try:
+        return get_sessions_from_notes(campaign_id)
 
     except HTTPException:
         # Let FastAPI handle it properly (401, 403, etc.)
@@ -195,3 +208,30 @@ def get_full_session_summary(payload: GetNotesRequest, user_id: str = Depends(ge
         )
 
 
+@router.get("/session-summaries")
+def get_session_summaries(campaign_id: str, session_date: str, user_id: str = Depends(get_current_user_id)):
+    try:
+        summaries = fetch_summaries(campaign_id, session_date, user_id)
+
+        cleaned_summaries = []
+
+        for summary in summaries:
+            clean = {
+                "session_date": summary["session_date"],
+                "content": summary["summary_content"],
+                "contains_public": summary["contains_public"],
+            }
+            cleaned_summaries.append(clean)
+
+        return cleaned_summaries
+
+    except HTTPException:
+        # Let FastAPI handle it properly (401, 403, etc.)
+        raise
+
+    except Exception as e:
+        # Real server error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )

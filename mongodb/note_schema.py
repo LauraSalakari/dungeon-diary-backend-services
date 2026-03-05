@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 from pydantic import BaseModel
 from bson import ObjectId
-
 from mongodb import notes_collection
 
 
@@ -51,9 +50,9 @@ def create_new_note(note: NoteSchema, user_id: str):
         "id": note.inserted_id
     }
 
-def get_personal_notes_from_db(info: GetNotesRequest, user_id: str):
-    session = set_session_date(info.session_date)
-    campaign = ObjectId(info.campaign_id)
+def get_personal_notes_from_db(session_date, campaign_id, user_id: str):
+    session = set_session_date(session_date)
+    campaign = ObjectId(campaign_id)
 
     notes = notes_collection.find({"user_id": str(user_id), "campaign_id": campaign, "session_date": session}).sort("created_at", -1)
 
@@ -76,8 +75,8 @@ def all_notes_for_session(info: GetNotesRequest, user_id: str):
 
     # get all notes of the logged in user for the session, and all public notes from others in the campaign
     query = {
-        "campaignId": campaign,
-        "sessionId": session,
+        "campaign_id": campaign,
+        "session_date": session,
         "$or": [
             # all notes by the current user (public or private)
             {"userId": user_id},
@@ -85,8 +84,8 @@ def all_notes_for_session(info: GetNotesRequest, user_id: str):
             # public notes by other users
             {
                 "$and": [
-                    {"userId": {"$ne": user_id}},
-                    {"isPublic": True}
+                    {"user_id": {"$ne": user_id}},
+                    {"is_private": False}
                 ]
             }
         ]
@@ -105,3 +104,9 @@ def all_notes_for_session(info: GetNotesRequest, user_id: str):
         notes_clean.append(clean_note)
 
     return notes_clean
+
+
+def get_sessions_from_notes(campaign_id: str):
+    campaign = ObjectId(campaign_id)
+    dates = notes_collection.distinct("session_date", {"campaign_id": campaign})
+    return sorted(dates, reverse=True)

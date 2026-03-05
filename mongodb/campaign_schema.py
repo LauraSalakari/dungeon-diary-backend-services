@@ -63,7 +63,7 @@ def db_join_campaign(campaign_info: CampaignJoinSchema, user_id: str):
     campaign_doc = {
         "campaign_id" : campaign["_id"],
         "character_name" : campaign_info.character_name,
-        "role": "player"
+        "role": "player",
     }
 
     user_collection.update_one({"_id": ObjectId(user_id)}, {"$push": {"campaigns": campaign_doc}}, upsert=True)
@@ -78,4 +78,5 @@ def db_join_campaign(campaign_info: CampaignJoinSchema, user_id: str):
     return {
         "campaign_id": campaign["_id"],
         "character_name": campaign_info.character_name,
+        "campaign_name": campaign["name"]
     }
